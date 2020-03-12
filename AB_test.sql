@@ -20,7 +20,7 @@ SELECT
 	CASE WHEN sfo.stagename = 'Client' THEN
 		 COALESCE(sfo.bookkeeping_mrr__c,0)+COALESCE(sfo.tax_mrr__c,0)+
 		 CASE WHEN sfo.bench_pro_opp_status__c = 'Client'
-			  THEN sfo.bench_pro_mrr__c ELSE 0 END
+		 THEN sfo.bench_pro_mrr__c ELSE 0 END
 		 END as won_mrr
 FROM salesforce.sf_lead sfl
 	LEFT JOIN salesforce.sf_opportunity sfo	ON sfl.convertedopportunityid = sfo.id
@@ -49,8 +49,11 @@ ORDER BY actual_date_created__c DESC
 ),
 sample AS
 (
-SELECT u.user_id , u.id, u._email AS email,
-u.BpEcsLLQTIuAqUemWarZbw AS variation_id --
+SELECT
+	u.user_id,
+	u.id,
+	u._email AS email,
+	u.BpEcsLLQTIuAqUemWarZbw AS variation_id --
 FROM main_production.users u
 WHERE u.BpEcsLLQTIuAqUemWarZbw IS NOT NULL --
 ),
@@ -69,7 +72,10 @@ LEFT JOIN mainapp_production_v2.client mac
 ),
 views AS
 (
-SELECT pv.user_id, DATE_TRUNC('d',CONVERT_TIMEZONE('PST8PDT',pv.time)) AS view_day, pv.device_type
+SELECT
+	pv.user_id,
+	DATE_TRUNC('d',CONVERT_TIMEZONE('PST8PDT',pv.time)) AS view_day,
+	pv.device_type
 FROM main_production.pageviews pv
 WHERE view_day >= '2020-02-26' --
 AND pv.path LIKE '/'
@@ -81,34 +87,44 @@ SELECT DISTINCT
 	views.user_id,
 	people.person_email,
 	variation_id,
-	LISTAGG(DISTINCT device_type,', ') WITHIN GROUP (ORDER BY view_day) OVER (PARTITION BY views.user_id) as device,
-	COUNT(DISTINCT device_type) WITHIN GROUP (ORDER BY view_day) OVER (PARTITION BY views.user_id) as device_count,
+	LISTAGG(DISTINCT views.device_type,', ') WITHIN GROUP (ORDER BY view_day) OVER (PARTITION BY views.user_id) as device,
+	COUNT(DISTINCT views.device_type) WITHIN GROUP (ORDER BY view_day) OVER (PARTITION BY views.user_id) as device_count,
 	FIRST_VALUE(leads.id) OVER (PARTITION BY views.user_id) as first_lead_id,
 	FIRST_VALUE(dropouts.id) OVER (PARTITION BY views.user_id) as first_dropout_id,
 	MAX(leads.won_mrr) OVER (PARTITION BY views.user_id) as max_mrr,
-	MAX(CASE WHEN leads.review_call_booked_boolean__c THEN 1 ELSE 0 END) OVER ( PARTITION BY views.user_id) as trial_indicator
+	MAX(CASE WHEN leads.review_call_booked_boolean__c THEN 1 ELSE 0 END) OVER ( PARTITION BY views.user_id) as trial_indicator,
+	(CASE
+		WHEN mkt.path ILIKE '%request-a-bookkeeping-demo%' AND variation_id = 2 THEN 1
+		ELSE 0
+	END) AS demo_indicator
 FROM views
 LEFT JOIN people
 	ON views.user_id = people.user_id
 LEFT JOIN leads
 	ON (client_id = leads.bench_id__c OR person_email ILIKE leads.email OR people.email ILIKE leads.email)
 	AND view_day <= leads.actual_date_created__c
+LEFT JOIN main_production.marketo_form_1500_submitted mkt
+	ON views.user_id = mkt.user_id
+	AND view_day <= DATE_TRUNC('d',CONVERT_TIMEZONE('PST8PDT',mkt.time))
 LEFT JOIN dropouts
 	ON (client_id = dropouts.benchid__c OR person_email ILIKE dropouts.email OR people.email ILIKE dropouts.email)
 	AND view_day <= dropouts.actual_date_created__c
 WHERE (person_email IS NULL
-OR people.email IS NULL
-OR person_email NOT LIKE '%bench.co%' AND person_email NOT LIKE '%test%' AND people.email NOT LIKE '%bench.co%' AND people.email NOT LIKE '%test%')
+	OR people.email IS NULL
+	OR person_email NOT LIKE '%bench.co%' AND person_email NOT LIKE '%test%' AND people.email NOT LIKE '%bench.co%' AND people.email NOT LIKE '%test%')
 )
 SELECT
 	variation_id,
 	device,
-	COUNT(DISTINCT first_dropout_id) as dropouts,
+	COUNT(DISTINCT first_dropout_id) as dropouts, --people who did not finish the SUF
 	COUNT(DISTINCT user_id) as viewers,
 	COUNT(DISTINCT first_lead_id) as leads,
 	SUM(trial_indicator) as trials,
-	SUM(CASE WHEN max_mrr IS NOT NULL THEN 1 ELSE 0 END) as clients
+	SUM(CASE WHEN max_mrr IS NOT NULL THEN 1 ELSE 0 END) as clients,
+	SUM(demo_indicator) as demos
 FROM aggregation
 WHERE device_count = 1
+--AND variation_id = 2 --exclude pages with previous button
+--AND demo_indicator = 1 --demo button
 GROUP BY 1,2
 ORDER BY 1,2;
