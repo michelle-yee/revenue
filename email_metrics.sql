@@ -1,3 +1,4 @@
+
 with rawjoin AS (
 SELECT DISTINCT
 	email_sent,
@@ -7,7 +8,7 @@ SELECT DISTINCT
 	clicked_id,
 	email,
 	ROW_NUMBER() OVER(PARTITION BY sent_id ORDER BY email_sent DESC) as number,
-	CASE WHEN m.link ILIKE '%unsub%' THEN sent_id END AS unsub_id,
+	CASE WHEN m.link ILIKE '%unsub%' AND m.primary_attribute_value NOT ILIKE '%\\_OPR\\_%'THEN sent_id END AS unsub_id,
 	CASE WHEN b.leadid IS NOT NULL THEN b.leadid end as bounce_h,
 	CASE WHEN s.leadid IS NOT NULL THEN s.leadid end as bounce_s,
 	CASE
@@ -23,8 +24,8 @@ LEFT JOIN marketo_v2.activities_email_bounced_soft s
 	ON sent_id = s.leadid
 	AND DATE_TRUNC('d',email_sent) = DATE_TRUNC('d',CONVERT_TIMEZONE('PST8PDT',s.activitydate))
 	AND m.primary_attribute_value = s.primary_attribute_value
---WHERE DATE_TRUNC('month',email_sent) >= '2020-03-01' --specific month for general email metrics
-WHERE DATE_TRUNC('month',email_sent) >= '2020-03-01' AND DATE_TRUNC('month',email_sent) <= '2020-04-01' --date range for engaged/unengaged
+WHERE DATE_TRUNC('month',email_sent) = '2020-05-01' --specific month for general email metrics
+--WHERE DATE_TRUNC('month',email_sent) >= '2020-03-01' AND DATE_TRUNC('month',email_sent) <= '2020-04-01' --date range for engaged/unengaged
 ORDER BY sent_id, email_sent
 ),
 email_agg AS (
