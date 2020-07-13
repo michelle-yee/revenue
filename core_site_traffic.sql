@@ -341,25 +341,3 @@ core_sum as (.    --rolling up by date scope
 SELECT * FROM core_sum
 LEFT JOIN last_touch_sum ON core_sum.theweek = last_touch_sum.theweek;
 
-
-
-
-SELECT DISTINCT
-	ili.plan__id as plan,
-	plan__interval AS interval,
---	CASE WHEN plan ILIKE '%\\_pro\\_%' THEN 'PRO'
---		 WHEN plan NOT ILIKE '%\\_pro\\_%' AND ili.metadata__benchtype = 'keepUp' THEN 'CORE'
---		 END AS type,
-	CASE WHEN plan  ILIKE '%\\_tax\\_%' THEN 'BenchTax'
-		 WHEN plan  ILIKE '%\\_pro\\_%' THEN 'Pro_Bookkeeping' ELSE 'Bookkeeping' END AS product,
---	ili.metadata__benchtype,
-	gross_mrr,
-	ili.currency,
-	ili.amount*0.01
-
- FROM bench_stripe_integration_v2.invoice_line_items ili
- LEFT JOIN human_maintained.gross_mrrs mrr
-	ON plan__id = mrr.stripe_subscription_plan_id
-WHERE plan IS NOT NULL
-
-	;
