@@ -1,4 +1,3 @@
-
 with rawjoin AS (
 SELECT DISTINCT
 	email_sent,
@@ -24,7 +23,7 @@ LEFT JOIN marketo_v2.activities_email_bounced_soft s
 	ON sent_id = s.leadid
 	AND DATE_TRUNC('d',email_sent) = DATE_TRUNC('d',CONVERT_TIMEZONE('PST8PDT',s.activitydate))
 	AND m.primary_attribute_value = s.primary_attribute_value
-WHERE DATE_TRUNC('month',email_sent) = '2020-07-01' --specific month for general email metrics & date for engaged/unengaged
+WHERE DATE_TRUNC('month',email_sent) = '2020-08-01' --specific month for general email metrics & date for engaged/unengaged
 ORDER BY sent_id, email_sent
 ),
 email_agg AS (
@@ -46,6 +45,9 @@ frequency as (
 SELECT DISTINCT COUNT(primary_attribute_value) OVER (PARTITION BY email) as total_sent, email FROM(
 SELECT DISTINCT primary_attribute_value, email FROM rawjoin WHERE primary_attribute_value NOT ILIKE '%syllabus%' ))
 
+
+--contacted
+SELECT COUNT(DISTINCT sent_id) FROM rawjoin WHERE trigger_ind = 0;
 
 --engaged
 SELECT COUNT(DISTINCT opened_id) FROM (
@@ -89,3 +91,10 @@ SELECT
 	SUM(hard_bounces) as total_hard_bounces,
 	SUM(soft_bounces) as total_soft_bounces
 FROM email_agg;
+
+--contactable
+SELECT COUNT(DISTINCT id) FROM revenue.v_marketo_contactable WHERE prospect_ind = 0;
+--prospect
+SELECT COUNT(DISTINCT id) FROM revenue.v_marketo_contactable WHERE prospect_ind = 1;
+
+
