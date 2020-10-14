@@ -2,7 +2,6 @@
 --This query is used for AB tests on the Bench website
 --It surfaces full funnel metrics including: sign-up flow dropouts, uniques, leads, trials and clients and filters out viewers that have seen the experiment page on multiple devices
 
-
 WITH leads AS
 (
 SELECT ld.*, sfl.email, sfo.review_call_booked_boolean__c
@@ -11,7 +10,7 @@ LEFT JOIN salesforce.sf_lead sfl
 ON ld.id = sfl.id
 LEFT JOIN salesforce.sf_opportunity sfo
 ON ld.opp_id = sfo.id
-WHERE ld.actual_date_created__c >= '2020-05-22' --lead conversion on/after experiment start date
+WHERE ld.actual_date_created__c >= '2020-10-02' --lead conversion on/after experiment start date
 ),
 dropouts AS
 (
@@ -50,7 +49,7 @@ AND sfl.recordtypeid = '01215000001YpzDAAS'
 AND COALESCE(sfl.loss_reason__c,'NULL') NOT IN ('Fake lead / account','Missed Call - No Contact')
 AND COALESCE(sfl.owner_role__c,'NULL') NOT LIKE 'Sales Operations'
 AND NOT sfl.isdeleted
-AND sfl.actual_date_created__c >= '2020-05-22' --SUF dropout on/after experiment start date
+AND sfl.actual_date_created__c >= '2020-10-02' --SUF dropout on/after experiment start date
 )
 ,
 sample AS
@@ -59,10 +58,18 @@ SELECT
 	u.user_id,
 	u.id,
 	u._email AS email,
-	u.CQ9s9FHgRSysNouZAMl3LQ AS variation_id --experiment ID
+	u.H7PhuN6_S2O7L2ssLqbavA AS variation_id, --experiment ID
+	MIN(u.H7PhuN6_S2O7L2ssLqbavA) OVER (PARTITION BY _email) as variation_min,
+	MAX(u.H7PhuN6_S2O7L2ssLqbavA) OVER (PARTITION BY _email) as variations_max
 FROM main_production.users u
-WHERE u.CQ9s9FHgRSysNouZAMl3LQ IS NOT NULL --experiment ID
-),
+WHERE u.H7PhuN6_S2O7L2ssLqbavA IS NOT NULL --experiment ID
+)
+,
+email_exclusions AS --emails who have seen multiple variations
+(
+SELECT * FROM sample WHERE variation_min <> variations_max AND email IS NOT NULL
+)
+,
 people AS
 (
 SELECT
@@ -84,7 +91,7 @@ SELECT
 	pv.device_type
 FROM main_production.pageviews pv
   INNER JOIN sample ON pv.user_id = sample.user_id
-WHERE pv.time >= CONVERT_TIMEZONE('PST8PDT','UTC','2020-05-22 00:00:00') --site view on/after experiment start date
+WHERE pv.time >= CONVERT_TIMEZONE('PST8PDT','UTC','2020-10-02 00:00:00') --site view on/after experiment start date
   AND pv.path LIKE '/' -- '/' is the homepage or add any page a paid ad leads to
 ),
 aggregation AS
@@ -108,10 +115,17 @@ LEFT JOIN leads
 LEFT JOIN dropouts
 	ON (client_id = dropouts.benchid__c OR person_email = dropouts.email OR people.email = dropouts.email)
 	AND view_day <= dropouts.actual_date_created__c
-WHERE (person_email IS NULL
-	OR people.email IS NULL
-	OR person_email NOT LIKE '%bench.co%' AND person_email NOT LIKE '%test%' AND people.email NOT LIKE '%bench.co%' AND people.email NOT LIKE '%test%')
+WHERE 
+	person_email IS NULL  
+	OR people.email IS NULL 
+	OR (person_email NOT LIKE '%bench.co%' 
+	AND person_email NOT LIKE '%test%' 
+	AND people.email NOT LIKE '%bench.co%' 
+	AND people.email NOT LIKE '%test%')
+	AND person_email NOT IN (SELECT email FROM email_exclusions) --take out people who have seen multiple variations
+	AND people.email NOT IN (SELECT email FROM email_exclusions) --take out people who have seen multiple variations
 )
+
 SELECT
 	variation_id,
 	device,
