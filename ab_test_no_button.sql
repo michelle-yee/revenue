@@ -59,8 +59,8 @@ SELECT
 	u.id,
 	u._email AS email,
 	u.H7PhuN6_S2O7L2ssLqbavA AS variation_id, --experiment ID
-	MIN(u.H7PhuN6_S2O7L2ssLqbavA) OVER (PARTITION BY _email) as variation_min,
-	MAX(u.H7PhuN6_S2O7L2ssLqbavA) OVER (PARTITION BY _email) as variations_max
+	MIN(u.H7PhuN6_S2O7L2ssLqbavA) OVER (PARTITION BY _email) as variation_min, --experiment ID
+	MAX(u.H7PhuN6_S2O7L2ssLqbavA) OVER (PARTITION BY _email) as variations_max --experiment ID
 FROM main_production.users u
 WHERE u.H7PhuN6_S2O7L2ssLqbavA IS NOT NULL --experiment ID
 )
