@@ -96,6 +96,21 @@ WHERE pv.time >= CONVERT_TIMEZONE('PST8PDT','UTC','2020-12-07 00:00:00') --site 
   AND pv.path LIKE '/' -- '/' is the homepage or add any page a paid ad leads to
 )
 ,
+retro_clients AS 
+(
+SELECT DISTINCT
+	leads.opp_id,
+	leads.Bench_ID__c,
+	leads.email,
+	opp.stagename,
+	opp.iswon,
+	opp.closedate
+FROM leads 
+LEFT JOIN salesforce.sf_opportunity opp
+ON leads.opp_id = opp.id
+WHERE stagename = 'Onboarded with Retro' AND opp.recordtypeid = '01215000000XB5dAAG' AND irs_cu_only_team__c
+) 
+,
 aggregation AS
 (
 SELECT DISTINCT
@@ -107,7 +122,8 @@ SELECT DISTINCT
 	FIRST_VALUE(leads.id) OVER (PARTITION BY views.user_id) as first_lead_id,
 	FIRST_VALUE(dropouts.id) OVER (PARTITION BY views.user_id) as first_dropout_id,
 	MAX(leads.won_mrr) OVER (PARTITION BY views.user_id) as max_mrr,
-	MAX(CASE WHEN leads.review_call_booked_boolean__c THEN 1 ELSE 0 END) OVER ( PARTITION BY views.user_id) as trial_indicator
+	MAX(CASE WHEN leads.review_call_booked_boolean__c THEN 1 ELSE 0 END) OVER ( PARTITION BY views.user_id) as trial_indicator,
+	CASE WHEN r.opp_id IS NOT NULL THEN 1 ELSE 0 END as retro_client
 FROM views
 LEFT JOIN people
 	ON views.user_id = people.user_id
@@ -117,6 +133,8 @@ LEFT JOIN leads
 LEFT JOIN dropouts
 	ON (client_id = dropouts.benchid__c OR person_email = dropouts.email OR people.emails = dropouts.email)
 	AND view_day <= dropouts.actual_date_created__c
+LEFT JOIN retro_clients r
+	ON (client_id = r.bench_id__c OR person_email = r.email OR people.emails = r.email)
 WHERE 
 	person_email IS NULL  
 	OR people.emails IS NULL 
@@ -135,7 +153,8 @@ SELECT
 	COUNT(DISTINCT user_id) as viewers,
 	COUNT(DISTINCT first_lead_id) as leads,
 	SUM(trial_indicator) as trials,
-	SUM(CASE WHEN max_mrr IS NOT NULL THEN 1 ELSE 0 END) as clients
+	SUM(CASE WHEN max_mrr IS NOT NULL THEN 1 ELSE 0 END) as traditional_clients,
+	SUM(retro_client) as retro_clients
 FROM aggregation
 WHERE device_count = 1 --ensures the viewer has seen only 1 variation
 GROUP BY 1,2
