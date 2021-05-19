@@ -6,13 +6,14 @@ SELECT
 	ld.id,
 	CONVERT_TIMEZONE('PST8PDT',pv.time) AS view_day,
 	MIN(view_day) OVER (PARTITION BY inferred_email) AS min_view_day,
-	CASE WHEN min_view_day <= ld.lead_created_datetime_pstpdt THEN ld.lead_created_datetime_pstpdt END as lead
+	CASE WHEN min_view_day <= ld.lead_created_datetime_pstpdt THEN ld.lead_created_datetime_pstpdt END as lead,
+	landing_page
 FROM main_production.pageviews pv 
 LEFT JOIN bench_enhanced.heap_user_identity be
 	ON pv.user_id = be.heap_user_id
 LEFT JOIN revenue.lead_data ld
 	ON be.inferred_email = ld.email
-WHERE landing_page ILIKE '%friends-of-bench%' 
+WHERE landing_page ILIKE '%bench.co/friends-of-bench/%' 
 AND CONVERT_TIMEZONE('PST8PDT',pv.time) >= '2020-01-01'
 AND (inferred_email NOT ILIKE '%test%' AND inferred_email NOT ILIKE '%bench.co%')
 )
