@@ -1,4 +1,4 @@
-WITH blog_views AS (
+WITH blog_views AS ( 
 SELECT
 user_id,
 session_id,
@@ -23,7 +23,7 @@ INNER JOIN blog_views pv --ensure the person from the experiment has been on the
 	ON h.user_id = pv.user_id
 	AND visited_blog IS TRUE
 	AND visited_signup_page IS TRUE
-WHERE npknwmulqdqcx22kufsldg = 0 --grab all users in the experiment
+WHERE npknwmulqdqcx22kufsldg = 0 --grab all control users in the experiment
 	AND NVL(be.inferred_email,'a') NOT ILIKE '%test%' 
 	AND NVL(be.inferred_email,'a') NOT ILIKE '%bench.co%'
 	AND NVL(be.inferred_email,'a') NOT ILIKE '%tamarablagojevic%'
@@ -57,11 +57,12 @@ SELECT DISTINCT *,
 	MAX (variation) OVER (PARTITION BY user_id) as max_var
 FROM agg
 )
+
+
 SELECT 
 	pageview_date,
 	user_id,
 	c.id as client_id,
---	inferred_email,
 	inferred_person_id,
 	variation,
 	ld.lead_created_datetime_pstpdt,
@@ -69,7 +70,9 @@ SELECT
 	CONVERT_TIMEZONE('PST8PDT',sfo.closedate) as closedate_pstpdt,
 	sfo.stagename,
 	sfo.iswon,
-	sfl.id
+	CASE WHEN inferred_email IS NOT NULL AND ld.email IS NULL THEN 1 ELSE 0 END AS dropoff, --This assumes that the person entered their email through the SUF (classic or airkit), and did not enter their email subsequently somewhere else (like a resource)
+	inferred_email,
+	ld.email
 FROM agg2 
 LEFT JOIN revenue.lead_data ld
 	ON agg2.inferred_email = ld.email
@@ -80,27 +83,6 @@ LEFT JOIN salesforce.sf_opportunity sfo
 	AND CONVERT_TIMEZONE('PST8PDT',sfo.closedate) >= pageview_date
 LEFT JOIN mainapp_production_v2.client c
 	ON agg2.inferred_person_id = c.principalpersonid
-LEFT JOIN salesforce.sf_lead sfl
-	ON c.id = sfl.benchid__c
-	AND
-	(
-	COALESCE(sfl.leadsource,'NULL') NOT IN ('Outbound','Test Lead','Outbound Referral','Radius',
-											'Equity Structure Change','Unassigned: Merged','Inbound Partnership Interest',
-											'Partnership Prospecting','Content','Re-engaged Contact','List Upload','NULL')
-	OR (
-		sfl.leadsource IN ('Content','List Upload')
-		AND
-			 (
-			 COALESCE(sfl.providedemail__c,sfl.providedcompanydetails__c,sfl.createdbenchaccount__c) IS NOT NULL
-			 OR sfl.isconverted IS TRUE
-			 )
-		 )
-	)
-AND sfl.recordtypeid = '01215000001YpzDAAS'
-AND COALESCE(sfl.loss_reason__c,'NULL') NOT IN ('Fake lead / account','Missed Call - No Contact')
-AND COALESCE(sfl.owner_role__c,'NULL') NOT LIKE 'Sales Operations'
-AND NOT sfl.isdeleted
-AND sfl.actual_date_created__c >= '2021-05-20' --experiment start date
 WHERE min_var = max_var --ensures everyone saw only one variation
 	AND min_pageview = pageview_date 
-;"
+;
