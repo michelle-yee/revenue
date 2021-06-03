@@ -10,6 +10,7 @@ WHERE CONVERT_TIMEZONE('PST8PDT',time) >= '2021-05-20' --experiment start date
 GROUP BY 1,2,3),
 
 agg AS (
+/*classic signup pageviews*/
 SELECT 
 	pageview_date,
 	h.user_id,
@@ -31,6 +32,7 @@ WHERE npknwmulqdqcx22kufsldg = 0 --grab all control users in the experiment
 	
 UNION
 
+/*airkit pageviews*/
 SELECT 
 	DATE_TRUNC('d',CONVERT_TIMEZONE('PST8PDT',time)) as pageview_date,
 	pv.user_id,
@@ -70,19 +72,19 @@ SELECT
 	CONVERT_TIMEZONE('PST8PDT',sfo.closedate) as closedate_pstpdt,
 	sfo.stagename,
 	sfo.iswon,
-	CASE WHEN inferred_email IS NOT NULL AND ld.email IS NULL THEN 1 ELSE 0 END AS dropoff, --This assumes that the person entered their email through the SUF (classic or airkit), and did not enter their email subsequently somewhere else (like a resource)
-	inferred_email,
-	ld.email
+	CASE WHEN inferred_email IS NOT NULL AND ld.email IS NULL THEN 1 ELSE 0 END AS dropoff --This assumes that the person entered their email through the SUF (classic or airkit), and did not enter their email subsequently somewhere else (like a resource)
+--	inferred_email,
+--	ld.email
 FROM agg2 
+LEFT JOIN mainapp_production_v2.client c
+	ON agg2.inferred_person_id = c.principalpersonid
 LEFT JOIN revenue.lead_data ld
-	ON agg2.inferred_email = ld.email
+	ON (agg2.inferred_email ILIKE ld.email OR c.id = ld.bench_id__c)
 	AND ld.lead_created_datetime_pstpdt >= pageview_date
 LEFT JOIN salesforce.sf_opportunity sfo
 	ON ld.opp_id = sfo.id
 	AND torq_review_call_booked__c >= pageview_date
 	AND CONVERT_TIMEZONE('PST8PDT',sfo.closedate) >= pageview_date
-LEFT JOIN mainapp_production_v2.client c
-	ON agg2.inferred_person_id = c.principalpersonid
 WHERE min_var = max_var --ensures everyone saw only one variation
 	AND min_pageview = pageview_date 
 ;
