@@ -5,12 +5,12 @@
 WITH leads AS
 (
 SELECT ld.*, sfl.email as email1, sfo.review_call_booked_boolean__c
-FROM revenue.lead_data ld
+FROM salesforce_reports.lead_data ld
 LEFT JOIN salesforce.sf_lead sfl
 ON ld.id = sfl.id
 LEFT JOIN salesforce.sf_opportunity sfo
 ON ld.opp_id = sfo.id
-WHERE ld.actual_date_created__c >= '2020-12-07' --lead conversion on/after experiment start date
+WHERE ld.actual_date_created__c >= '2021-11-15' --lead conversion on/after experiment start date
 ),
 dropouts AS
 (
@@ -49,7 +49,7 @@ AND sfl.recordtypeid = '01215000001YpzDAAS'
 AND COALESCE(sfl.loss_reason__c,'NULL') NOT IN ('Fake lead / account','Missed Call - No Contact')
 AND COALESCE(sfl.owner_role__c,'NULL') NOT LIKE 'Sales Operations'
 AND NOT sfl.isdeleted
-AND sfl.actual_date_created__c >= '2020-12-07' --SUF dropout on/after experiment start date
+AND sfl.actual_date_created__c >= '2021-11-15' --SUF dropout on/after experiment start date
 )
 ,
 sample AS
@@ -58,11 +58,11 @@ SELECT
 	u.user_id,
 	u.id,
 	u._email AS emails,
-	u.nomkn8brwqtgelyru0_cg AS variation_id, --experiment ID
-	MIN(u.nomkn8brwqtgelyru0_cg) OVER (PARTITION BY _email) as variation_min, --experiment ID
-	MAX(u.nomkn8brwqtgelyru0_cg) OVER (PARTITION BY _email) as variations_max --experiment ID
+	u.ejzGen3XRsC4wyKlCWVaHg AS variation_id, --experiment ID
+	MIN(u.ejzGen3XRsC4wyKlCWVaHg) OVER (PARTITION BY _email) as variation_min, --experiment ID
+	MAX(u.ejzGen3XRsC4wyKlCWVaHg) OVER (PARTITION BY _email) as variations_max --experiment ID
 FROM main_production.users u
-WHERE u.nomkn8brwqtgelyru0_cg IS NOT NULL --experiment ID
+WHERE u.ejzGen3XRsC4wyKlCWVaHg IS NOT NULL --experiment ID
 ) 
 ,
 email_exclusions AS --emails who have seen multiple variations
@@ -92,7 +92,7 @@ SELECT
 	pv.device_type
 FROM main_production.pageviews pv
   INNER JOIN sample ON pv.user_id = sample.user_id
-WHERE pv.time >= CONVERT_TIMEZONE('PST8PDT','UTC','2020-12-07 00:00:00') --site view on/after experiment start date
+WHERE pv.time >= CONVERT_TIMEZONE('PST8PDT','UTC','2021-11-15 00:00:00') --site view on/after experiment start date
   AND pv.path LIKE '/' -- '/' is the homepage or add any page a paid ad leads to
 )
 ,
@@ -153,8 +153,8 @@ SELECT
 	COUNT(DISTINCT user_id) as viewers,
 	COUNT(DISTINCT first_lead_id) as leads,
 	SUM(trial_indicator) as trials,
-	SUM(CASE WHEN max_mrr IS NOT NULL THEN 1 ELSE 0 END) as traditional_clients,
-	SUM(retro_client) as retro_clients
+	SUM(CASE WHEN max_mrr IS NOT NULL THEN 1 ELSE 0 END) as clients
+--	SUM(retro_client) as retro_clients
 FROM aggregation
 WHERE device_count = 1 --ensures the viewer has seen only 1 variation
 GROUP BY 1,2
