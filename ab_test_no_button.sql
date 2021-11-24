@@ -74,14 +74,14 @@ people AS
 (
 SELECT
 	sample.*,
-	map.id AS person_id,
-	LOWER(map.email) AS person_email,
+	map.inferred_person_id AS person_id,
+	LOWER(map.inferred_email) AS person_email,
 	mac.id AS client_id
 FROM sample
-LEFT JOIN mainapp_production_v2.person map
-	ON sample.id = map.id
+LEFT JOIN bench_enhanced.heap_user_identity map
+	ON sample.user_id = map.heap_user_id
 LEFT JOIN mainapp_production_v2.client mac
-	ON map.id = mac.principalpersonid
+	ON map.inferred_person_id = mac.principalpersonid
 )
 ,
 views AS
@@ -115,8 +115,10 @@ aggregation AS
 (
 SELECT DISTINCT
 	views.user_id,
---	people.person_email,
+	people.person_email,
 	variation_id,
+	leads.actual_date_created__c,
+	view_day,
 	LISTAGG(DISTINCT views.device_type,', ') WITHIN GROUP (ORDER BY view_day) OVER (PARTITION BY views.user_id) as device,
 	COUNT(DISTINCT views.device_type) WITHIN GROUP (ORDER BY view_day) OVER (PARTITION BY views.user_id) as device_count,
 	FIRST_VALUE(leads.id) OVER (PARTITION BY views.user_id) as first_lead_id,
@@ -128,7 +130,7 @@ FROM views
 LEFT JOIN people
 	ON views.user_id = people.user_id
 LEFT JOIN leads
-	ON (client_id = leads.bench_id__c OR person_email = leads.email1 OR people.emails = leads.email1)
+	ON (client_id = leads.bench_id__c OR person_email = leads.email1 OR people.emails = leads.email1 OR people.person_email = leads.email)
 	AND view_day <= leads.actual_date_created__c
 LEFT JOIN dropouts
 	ON (client_id = dropouts.benchid__c OR person_email = dropouts.email OR people.emails = dropouts.email)
