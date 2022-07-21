@@ -30,7 +30,7 @@ WHERE (lead_conversion IS NULL OR thetime <= lead_conversion)
 AND thedate >= '2017-12-30'
 AND touches.landing_page NOT ILIKE '%/careers%'
 AND touches.landing_page NOT ILIKE '%nginx%'
-AND DATE_TRUNC('d',touches.time) <= LAST FRIDAY ---
+	
 )
 , mapping as (
 SELECT
