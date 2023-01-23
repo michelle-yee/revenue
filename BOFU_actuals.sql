@@ -24,8 +24,8 @@ SELECT DISTINCT
 			'search_core',
 			'social') THEN 'Inbound'
 		ELSE channel
-	END AS channel1,
-	sfu.name AS rep_name
+	END AS channel1
+	--,sfu.name AS rep_name
 FROM revenue.v_mcod_attributions_long_unallocated mcod
 LEFT JOIN salesforce.sf_lead ld ON mcod.lead_id = ld.id
 LEFT JOIN salesforce.sf_user sfu ON ld.ownerid = sfu.id
