@@ -1,4 +1,4 @@
-	with summary as(
+
 SELECT DISTINCT
 	conversion_date,
 	DATE_TRUNC('month',conversion_date) themonth,
@@ -29,6 +29,4 @@ SELECT DISTINCT
 FROM revenue.v_mcod_attributions_long_unallocated mcod
 LEFT JOIN salesforce.sf_lead ld ON mcod.lead_id = ld.id
 LEFT JOIN salesforce.sf_user sfu ON ld.ownerid = sfu.id
-WHERE conversion_date >= '2021-01-01')
-
-SELECT DISTINCT channel,channel1 FROM summary;
+WHERE conversion_date >= '2021-01-01'
